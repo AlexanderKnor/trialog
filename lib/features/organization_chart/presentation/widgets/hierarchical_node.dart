@@ -92,6 +92,14 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
           children: [
                 // The node card with hover actions (isolated to prevent rebuilds)
                 HoverActionOverlay(
+                  childBuilder: (isHovered) => Container(
+                    key: _cardKey,
+                    child: OrganizationNodeCard(
+                      node: widget.node,
+                      onTap: () => _showNodeDetails(context),
+                      isHovered: isHovered,
+                    ),
+                  ),
                   actions: [
                     HoverAction(
                       icon: Icons.person_add,
@@ -110,32 +118,46 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
                   topLeftWidget: hasChildren
                       ? Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 8,
-                            vertical: 4,
+                            horizontal: 10,
+                            vertical: 6,
                           ),
                           decoration: BoxDecoration(
-                            color: DesignConstants.successColor,
-                            borderRadius: BorderRadius.circular(
-                              DesignConstants.borderRadiusRound,
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: DesignConstants.primaryColor.withValues(alpha: 0.2),
+                              width: 1.5,
                             ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: DesignConstants.primaryColor.withValues(alpha: 0.15),
+                                blurRadius: 8,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
                           ),
-                          child: Text(
-                            '${children.length}',
-                            style: const TextStyle(
-                              color: DesignConstants.textOnPrimary,
-                              fontSize: 10,
-                              fontWeight: DesignConstants.fontWeightBold,
-                            ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.people_outline,
+                                size: 14,
+                                color: DesignConstants.primaryColor,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${children.length}',
+                                style: TextStyle(
+                                  color: DesignConstants.primaryColor,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 0.2,
+                                ),
+                              ),
+                            ],
                           ),
                         )
                       : null,
-                  child: Container(
-                    key: _cardKey,
-                    child: OrganizationNodeCard(
-                      node: widget.node,
-                      onTap: () => _showNodeDetails(context),
-                    ),
-                  ),
                 ),
 
                 // Children below (if any)

@@ -227,6 +227,14 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
 
         // Center: Trialog Company (with key for position measurement and add button)
         HoverActionOverlay(
+          childBuilder: (isHovered) => Container(
+            key: _companyCardKey,
+            child: OrganizationNodeCard(
+              node: widget.rootNode,
+              onTap: () {},
+              isHovered: isHovered,
+            ),
+          ),
           actions: [
             HoverAction(
               icon: Icons.person_add,
@@ -235,10 +243,6 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
               onPressed: () => _showAddEmployeeDialog(context, widget.rootNode.id),
             ),
           ],
-          child: Container(
-            key: _companyCardKey,
-            child: OrganizationNodeCard(node: widget.rootNode, onTap: () {}),
-          ),
         ),
 
         // Right CEO (Daniel Lippert)
