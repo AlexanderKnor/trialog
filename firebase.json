@@ -1,0 +1,63 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "trialog-8a95b",
+          "appId": "1:279927253519:android:bf9a23e6ebe5715641d17a",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "trialog-8a95b",
+          "configurations": {
+            "android": "1:279927253519:android:bf9a23e6ebe5715641d17a",
+            "ios": "1:279927253519:ios:c9b943ad8dac8a9341d17a",
+            "macos": "1:279927253519:ios:c9b943ad8dac8a9341d17a",
+            "web": "1:279927253519:web:55774d2db8e0495341d17a",
+            "windows": "1:279927253519:web:977063d001169d6541d17a"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  },
+  "hosting": {
+    "public": "build/web",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "destination": "/index.html"
+      }
+    ],
+    "headers": [
+      {
+        "source": "**/*.@(jpg|jpeg|gif|png|svg|webp|ico)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=7200"
+          }
+        ]
+      },
+      {
+        "source": "**/*.@(js|css)",
+        "headers": [
+          {
+            "key": "Cache-Control",
+            "value": "max-age=3600"
+          }
+        ]
+      }
+    ]
+  }
+}

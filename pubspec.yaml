@@ -1,0 +1,81 @@
+name: trialog
+description: "Trialog Revenue Tracking App - Track employee revenues and admin dashboard"
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.8.1
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # UI
+  cupertino_icons: ^1.0.8
+
+  # Routing
+  go_router: ^14.6.2
+
+  # State Management
+  flutter_riverpod: ^2.6.1
+
+  # Functional Programming
+  dartz: ^0.10.1
+  equatable: ^2.0.7
+
+  # Local Storage
+  shared_preferences: ^2.3.4
+
+  # Networking
+  http: ^1.2.2
+  dio: ^5.7.0
+
+  # Formatting & Localization
+  intl: ^0.20.1
+
+  # Date & Time
+  timezone: ^0.10.0
+
+  # Firebase
+  firebase_core: ^3.8.1
+  cloud_firestore: ^5.5.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # The "flutter_lints" package below contains a set of recommended lints to
+  # encourage good coding practices. The lint set provided by the package is
+  # activated in the `analysis_options.yaml` file located at the root of your
+  # package. See that file for information about deactivating specific lint
+  # rules and activating additional ones.
+  flutter_lints: ^5.0.0
+
+# For information on the generic Dart part of this file, see the
+# following page: https://dart.dev/tools/pub/pubspec
+
+# The following section is specific to Flutter packages.
+flutter:
+
+  # The following line ensures that the Material Icons font is
+  # included with your application, so that you can use the icons in
+  # the material Icons class.
+  uses-material-design: true
+
+  # Assets
+  # assets:
+
+  # Custom fonts - Trialog Corporate Design
+  # TODO: Add Bodoni 72 font files to assets/fonts/ directory
+  # fonts:
+  #   - family: Bodoni72
+  #     fonts:
+  #       - asset: assets/fonts/Bodoni72-Book.otf
+  #         weight: 400
+  #       - asset: assets/fonts/Bodoni72-Bold.otf
+  #         weight: 600
+  #
+  # Note: Until Bodoni 72 is added, the app will fall back to system serif fonts

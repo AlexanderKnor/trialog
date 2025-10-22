@@ -1,0 +1,48 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.email in [
+               'marcel.liebetrau@trialog.com',
+               'daniel.lippert@trialog.com'
+             ];
+    }
+
+    // Organization chart rules
+    match /organization_chart/{document} {
+      // Allow anyone to read the organization chart
+      // This enables public URL access for viewing the chart
+      allow read: if true;
+
+      // DEVELOPMENT MODE: Allow public write access
+      // TODO: Implement Firebase Authentication and restrict to admins
+      allow write: if true;
+
+      // PRODUCTION MODE (uncomment when Authentication is implemented):
+      // allow write: if isAdmin();
+    }
+
+    // Future collections
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.auth.uid == userId;
+    }
+
+    match /revenue_entries/{entry} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+
+    // Default: deny all access to other collections
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
