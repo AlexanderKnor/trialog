@@ -133,6 +133,7 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
   }
 
   /// Measures positions of company card and top-level employees for connector lines
+  /// Uses localToAncestor to properly handle InteractiveViewer transformations
   void _measurePositions() {
     if (!mounted) return;
 
@@ -152,20 +153,19 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
       return;
     }
 
-    // Calculate company's bottom center in stack coordinates
+    // Calculate company's bottom center relative to stack (handles zoom/pan correctly)
     final companyLocalBottomCenter = Offset(
       companyBox.size.width / 2,
       companyBox.size.height,
     );
-    final companyGlobalBottomCenter = companyBox.localToGlobal(companyLocalBottomCenter);
-    final stackGlobalOrigin = stackBox.localToGlobal(Offset.zero);
 
-    final companyPositionInStack = Offset(
-      companyGlobalBottomCenter.dx - stackGlobalOrigin.dx,
-      companyGlobalBottomCenter.dy - stackGlobalOrigin.dy,
+    // Use localToGlobal with ancestor parameter to properly handle InteractiveViewer
+    final companyPositionInStack = companyBox.localToGlobal(
+      companyLocalBottomCenter,
+      ancestor: stackBox,
     );
 
-    // Get employee positions (top center) in stack coordinates
+    // Get employee positions (top center) relative to stack
     final List<Offset> employeePositions = [];
     for (final employeeKey in _topLevelEmployeeKeys) {
       final employeeBox = employeeKey.currentContext?.findRenderObject() as RenderBox?;
@@ -175,16 +175,16 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
         return;
       }
 
-      // Calculate employee's top center in stack coordinates
+      // Calculate employee's top center relative to stack (handles zoom/pan correctly)
       final employeeLocalTopCenter = Offset(
         employeeBox.size.width / 2,
         0,
       );
-      final employeeGlobalTopCenter = employeeBox.localToGlobal(employeeLocalTopCenter);
 
-      final employeePositionInStack = Offset(
-        employeeGlobalTopCenter.dx - stackGlobalOrigin.dx,
-        employeeGlobalTopCenter.dy - stackGlobalOrigin.dy,
+      // Use localToGlobal with ancestor parameter for proper coordinate conversion
+      final employeePositionInStack = employeeBox.localToGlobal(
+        employeeLocalTopCenter,
+        ancestor: stackBox,
       );
 
       employeePositions.add(employeePositionInStack);

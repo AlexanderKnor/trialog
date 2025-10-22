@@ -31,29 +31,4 @@ class ConnectorLayer extends StatelessWidget {
       ),
     );
   }
-
-  @override
-  bool operator ==(Object other) =>
-      identical(this, other) ||
-      other is ConnectorLayer &&
-          runtimeType == other.runtimeType &&
-          parentPosition == other.parentPosition &&
-          _listEquals(childrenPositions, other.childrenPositions) &&
-          lineColor == other.lineColor &&
-          strokeWidth == other.strokeWidth;
-
-  @override
-  int get hashCode =>
-      parentPosition.hashCode ^
-      childrenPositions.hashCode ^
-      lineColor.hashCode ^
-      strokeWidth.hashCode;
-
-  bool _listEquals(List<Offset> a, List<Offset> b) {
-    if (a.length != b.length) return false;
-    for (int i = 0; i < a.length; i++) {
-      if (a[i] != b[i]) return false;
-    }
-    return true;
-  }
 }

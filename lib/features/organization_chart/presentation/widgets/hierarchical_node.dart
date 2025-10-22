@@ -167,6 +167,7 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
   }
 
   /// Measures positions of parent and children for connector lines
+  /// Uses localToAncestor to properly handle InteractiveViewer transformations
   void _measurePositions() {
     if (!mounted) return;
 
@@ -186,20 +187,19 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
       return;
     }
 
-    // Calculate parent's bottom center in stack coordinates
+    // Calculate parent's bottom center relative to stack (handles zoom/pan correctly)
     final parentLocalBottomCenter = Offset(
       parentBox.size.width / 2,
       parentBox.size.height,
     );
-    final parentGlobalBottomCenter = parentBox.localToGlobal(parentLocalBottomCenter);
-    final stackGlobalOrigin = stackBox.localToGlobal(Offset.zero);
 
-    final parentPositionInStack = Offset(
-      parentGlobalBottomCenter.dx - stackGlobalOrigin.dx,
-      parentGlobalBottomCenter.dy - stackGlobalOrigin.dy,
+    // Use localToGlobal with ancestor parameter to properly handle InteractiveViewer
+    final parentPositionInStack = parentBox.localToGlobal(
+      parentLocalBottomCenter,
+      ancestor: stackBox,
     );
 
-    // Get children positions (top center) in stack coordinates
+    // Get children positions (top center) relative to stack
     final List<Offset> childPositions = [];
     for (final childKey in _childKeys) {
       final childBox = childKey.currentContext?.findRenderObject() as RenderBox?;
@@ -209,16 +209,16 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
         return;
       }
 
-      // Calculate child's top center in stack coordinates
+      // Calculate child's top center relative to stack (handles zoom/pan correctly)
       final childLocalTopCenter = Offset(
         childBox.size.width / 2,
         0,
       );
-      final childGlobalTopCenter = childBox.localToGlobal(childLocalTopCenter);
 
-      final childPositionInStack = Offset(
-        childGlobalTopCenter.dx - stackGlobalOrigin.dx,
-        childGlobalTopCenter.dy - stackGlobalOrigin.dy,
+      // Use localToGlobal with ancestor parameter for proper coordinate conversion
+      final childPositionInStack = childBox.localToGlobal(
+        childLocalTopCenter,
+        ancestor: stackBox,
       );
 
       childPositions.add(childPositionInStack);
