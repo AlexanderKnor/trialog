@@ -13,29 +13,40 @@ import 'package:trialog/features/organization_chart/presentation/widgets/hover_a
 class OrganizationChartView extends ConsumerStatefulWidget {
   final OrganizationNode rootNode;
 
-  const OrganizationChartView({
-    super.key,
-    required this.rootNode,
-  });
+  const OrganizationChartView({super.key, required this.rootNode});
 
   @override
-  ConsumerState<OrganizationChartView> createState() => _OrganizationChartViewState();
+  ConsumerState<OrganizationChartView> createState() =>
+      _OrganizationChartViewState();
 }
 
 class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
   final GlobalKey _stackKey = GlobalKey();
   final GlobalKey _companyCardKey = GlobalKey();
   final List<GlobalKey> _topLevelEmployeeKeys = [];
+  final TransformationController _transformationController =
+      TransformationController();
 
   // Measured positions for connector lines
   Offset? _companyBottomCenter;
   final List<Offset> _employeeTopCenters = [];
   bool _positionsMeasured = false;
+  bool _initialCenteringDone = false;
 
   @override
   void initState() {
     super.initState();
     _initializeEmployeeKeys();
+    // Center on Trialog card after first frame
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      _centerOnTrialogCard();
+    });
+  }
+
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
   }
 
   @override
@@ -82,40 +93,48 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
       });
     }
 
-    return InteractiveViewer(
-      boundaryMargin: const EdgeInsets.all(double.infinity),
-      minScale: 0.5,
-      maxScale: 2.0,
-      scaleFactor: 500.0, // Sehr feine Zoom-Schritte (Standard: 200.0, höher = feiner)
-      constrained: false,
-      child: Padding(
-        padding: const EdgeInsets.all(DesignConstants.spacingXl),
-        child: Center(
-          child: Stack(
-            key: _stackKey,
-            clipBehavior: Clip.none,
-            children: [
-              // Connector lines from company to employees (drawn behind) - isolated widget for optimal performance
-              if (employees.isNotEmpty && _positionsMeasured && _companyBottomCenter != null)
-                Positioned.fill(
-                  child: ConnectorLayer(
-                    parentPosition: _companyBottomCenter!,
-                    childrenPositions: _employeeTopCenters,
+    return AnimatedOpacity(
+      opacity: _initialCenteringDone ? 1.0 : 0.0,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+      child: InteractiveViewer(
+        transformationController: _transformationController,
+        boundaryMargin: const EdgeInsets.all(double.infinity),
+        minScale: 0.5,
+        maxScale: 2.0,
+        scaleFactor: 500.0,
+        constrained: false,
+        child: Padding(
+          padding: const EdgeInsets.all(DesignConstants.spacingXl),
+          child: Center(
+            child: Stack(
+              key: _stackKey,
+              clipBehavior: Clip.none,
+              children: [
+                // Connector lines from company to employees (drawn behind) - isolated widget for optimal performance
+                if (employees.isNotEmpty &&
+                    _positionsMeasured &&
+                    _companyBottomCenter != null)
+                  Positioned.fill(
+                    child: ConnectorLayer(
+                      parentPosition: _companyBottomCenter!,
+                      childrenPositions: _employeeTopCenters,
+                    ),
                   ),
+
+                // Main content
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Top level: CEOs and Company horizontal
+                    _buildTopLevel(context),
+
+                    // Employees under Trialog
+                    _buildEmployeesUnderTrialog(context, employees),
+                  ],
                 ),
-
-              // Main content
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Top level: CEOs and Company horizontal
-                  _buildTopLevel(context),
-
-                  // Employees under Trialog
-                  _buildEmployeesUnderTrialog(context, employees),
-                ],
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -131,15 +150,20 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
     final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
     if (stackBox == null || !stackBox.hasSize) {
       // Stack not ready, retry in next frame
-      SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+      SchedulerBinding.instance.addPostFrameCallback(
+        (_) => _measurePositions(),
+      );
       return;
     }
 
     // Get company card position (bottom center)
-    final companyBox = _companyCardKey.currentContext?.findRenderObject() as RenderBox?;
+    final companyBox =
+        _companyCardKey.currentContext?.findRenderObject() as RenderBox?;
     if (companyBox == null || !companyBox.hasSize) {
       // Company card not ready, retry in next frame
-      SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+      SchedulerBinding.instance.addPostFrameCallback(
+        (_) => _measurePositions(),
+      );
       return;
     }
 
@@ -158,18 +182,18 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
     // Get employee positions (top center) relative to stack
     final List<Offset> employeePositions = [];
     for (final employeeKey in _topLevelEmployeeKeys) {
-      final employeeBox = employeeKey.currentContext?.findRenderObject() as RenderBox?;
+      final employeeBox =
+          employeeKey.currentContext?.findRenderObject() as RenderBox?;
       if (employeeBox == null || !employeeBox.hasSize) {
         // Some employees not ready yet, retry in next frame
-        SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+        SchedulerBinding.instance.addPostFrameCallback(
+          (_) => _measurePositions(),
+        );
         return;
       }
 
       // Calculate employee's top center relative to stack (handles zoom/pan correctly)
-      final employeeLocalTopCenter = Offset(
-        employeeBox.size.width / 2,
-        0,
-      );
+      final employeeLocalTopCenter = Offset(employeeBox.size.width / 2, 0);
 
       // Use localToGlobal with ancestor parameter for proper coordinate conversion
       final employeePositionInStack = employeeBox.localToGlobal(
@@ -230,7 +254,8 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
               icon: Icons.person_add,
               tooltip: 'Mitarbeiter unter Trialog hinzufügen',
               color: DesignConstants.successColor,
-              onPressed: () => _showAddEmployeeDialog(context, widget.rootNode.id),
+              onPressed: () =>
+                  _showAddEmployeeDialog(context, widget.rootNode.id),
             ),
           ],
         ),
@@ -250,7 +275,10 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
     );
   }
 
-  Widget _buildEmployeesUnderTrialog(BuildContext context, List<OrganizationNode> employees) {
+  Widget _buildEmployeesUnderTrialog(
+    BuildContext context,
+    List<OrganizationNode> employees,
+  ) {
     if (employees.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -258,7 +286,6 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
     return Column(
       children: [
         const SizedBox(height: 80), // Space for curved connectors
-
         // Employees with hierarchy (no static lines, connectors drawn by CustomPaint)
         Row(
           mainAxisSize: MainAxisSize.min,
@@ -285,5 +312,45 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
       context: context,
       builder: (context) => AddEmployeeDialog(parentId: parentId),
     );
+  }
+
+  /// Center the view on the Trialog card on initial load
+  void _centerOnTrialogCard() {
+    if (_initialCenteringDone) return;
+    if (!mounted) return;
+
+    final companyCardContext = _companyCardKey.currentContext;
+    if (companyCardContext == null) {
+      // Retry after next frame if not ready
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _centerOnTrialogCard();
+      });
+      return;
+    }
+
+    final RenderBox companyBox =
+        companyCardContext.findRenderObject() as RenderBox;
+    final companyPosition = companyBox.localToGlobal(Offset.zero);
+    final companySize = companyBox.size;
+
+    // Get screen size
+    final screenSize = MediaQuery.of(context).size;
+
+    // Calculate offset to center the Trialog card horizontally and position it near top
+    final targetX =
+        (screenSize.width / 2) - (companySize.width / 2) - companyPosition.dx;
+    final targetY =
+        120.0 - companyPosition.dy; // Position 120px from top (below AppBar)
+
+    // Apply transformation
+    _transformationController.value = Matrix4.identity()
+      ..translate(targetX, targetY);
+
+    // Trigger fade-in animation
+    if (mounted) {
+      setState(() {
+        _initialCenteringDone = true;
+      });
+    }
   }
 }
