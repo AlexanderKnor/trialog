@@ -101,12 +101,14 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
                     ),
                   ),
                   actions: [
-                    HoverAction(
-                      icon: Icons.person_add,
-                      tooltip: 'Mitarbeiter hinzufügen',
-                      color: DesignConstants.successColor,
-                      onPressed: () => _showAddEmployeeDialog(context),
-                    ),
+                    // CEOs (Geschäftsführer) should not have add button
+                    if (widget.node.type != NodeType.ceo)
+                      HoverAction(
+                        icon: Icons.person_add,
+                        tooltip: 'Mitarbeiter hinzufügen',
+                        color: DesignConstants.successColor,
+                        onPressed: () => _showAddEmployeeDialog(context),
+                      ),
                     if (widget.showDeleteButton)
                       HoverAction(
                         icon: Icons.delete_outline,

@@ -108,16 +108,6 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
               Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Title
-                  Text(
-                    'Trialog Organisationsstruktur',
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                          color: DesignConstants.primaryColor,
-                          fontWeight: DesignConstants.fontWeightBold,
-                        ),
-                  ),
-                  const SizedBox(height: DesignConstants.spacingXl),
-
                   // Top level: CEOs and Company horizontal
                   _buildTopLevel(context),
 
