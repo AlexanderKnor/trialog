@@ -5,8 +5,9 @@ import 'package:trialog/core/constants/design_constants.dart';
 import 'package:trialog/features/organization_chart/domain/entities/organization_node.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/hierarchical_node.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/organization_node_card.dart';
-import 'package:trialog/features/organization_chart/presentation/widgets/organization_connector_painter.dart';
+import 'package:trialog/features/organization_chart/presentation/widgets/connector_layer.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/add_employee_dialog.dart';
+import 'package:trialog/features/organization_chart/presentation/widgets/hover_action_overlay.dart';
 
 /// Organization chart view with elegant curved connectors
 class OrganizationChartView extends ConsumerStatefulWidget {
@@ -30,9 +31,6 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
   Offset? _companyBottomCenter;
   final List<Offset> _employeeTopCenters = [];
   bool _positionsMeasured = false;
-
-  // Hover state for company card
-  bool _isCompanyHovered = false;
 
   @override
   void initState() {
@@ -97,16 +95,12 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
             key: _stackKey,
             clipBehavior: Clip.none,
             children: [
-              // Connector lines from company to employees (drawn behind)
+              // Connector lines from company to employees (drawn behind) - isolated widget for optimal performance
               if (employees.isNotEmpty && _positionsMeasured && _companyBottomCenter != null)
                 Positioned.fill(
-                  child: CustomPaint(
-                    painter: OrganizationConnectorPainter(
-                      parentPosition: _companyBottomCenter!,
-                      childrenPositions: _employeeTopCenters,
-                      lineColor: DesignConstants.primaryColor.withValues(alpha: 0.4),
-                      strokeWidth: 2.0,
-                    ),
+                  child: ConnectorLayer(
+                    parentPosition: _companyBottomCenter!,
+                    childrenPositions: _employeeTopCenters,
                   ),
                 ),
 
@@ -232,40 +226,18 @@ class _OrganizationChartViewState extends ConsumerState<OrganizationChartView> {
         ],
 
         // Center: Trialog Company (with key for position measurement and add button)
-        MouseRegion(
-          onEnter: (_) => setState(() => _isCompanyHovered = true),
-          onExit: (_) => setState(() => _isCompanyHovered = false),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Container(
-                key: _companyCardKey,
-                child: OrganizationNodeCard(node: widget.rootNode, onTap: () {}),
-              ),
-              // Add employee button (top right)
-              if (_isCompanyHovered)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: DesignConstants.successColor,
-                      borderRadius: BorderRadius.circular(DesignConstants.borderRadiusRound),
-                      boxShadow: DesignConstants.shadowSm,
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.person_add, size: 16, color: Colors.white),
-                      onPressed: () => _showAddEmployeeDialog(context, widget.rootNode.id),
-                      tooltip: 'Mitarbeiter unter Trialog hinzufügen',
-                      padding: const EdgeInsets.all(4),
-                      constraints: const BoxConstraints(
-                        minWidth: 28,
-                        minHeight: 28,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
+        HoverActionOverlay(
+          actions: [
+            HoverAction(
+              icon: Icons.person_add,
+              tooltip: 'Mitarbeiter unter Trialog hinzufügen',
+              color: DesignConstants.successColor,
+              onPressed: () => _showAddEmployeeDialog(context, widget.rootNode.id),
+            ),
+          ],
+          child: Container(
+            key: _companyCardKey,
+            child: OrganizationNodeCard(node: widget.rootNode, onTap: () {}),
           ),
         ),
 

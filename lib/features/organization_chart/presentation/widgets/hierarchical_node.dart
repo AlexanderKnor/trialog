@@ -6,7 +6,8 @@ import 'package:trialog/features/organization_chart/domain/entities/organization
 import 'package:trialog/features/organization_chart/presentation/state/organization_chart_providers.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/add_employee_dialog.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/organization_node_card.dart';
-import 'package:trialog/features/organization_chart/presentation/widgets/organization_connector_painter.dart';
+import 'package:trialog/features/organization_chart/presentation/widgets/connector_layer.dart';
+import 'package:trialog/features/organization_chart/presentation/widgets/hover_action_overlay.dart';
 
 /// Hierarchical node that can have children below it with elegant curved connectors
 class HierarchicalNode extends ConsumerStatefulWidget {
@@ -24,7 +25,6 @@ class HierarchicalNode extends ConsumerStatefulWidget {
 }
 
 class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
-  bool _isHovered = false;
   final GlobalKey _stackKey = GlobalKey();
   final GlobalKey _cardKey = GlobalKey();
   final List<GlobalKey> _childKeys = [];
@@ -77,16 +77,12 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
       key: _stackKey,
       clipBehavior: Clip.none,
       children: [
-        // Connector lines (drawn behind everything)
+        // Connector lines (drawn behind everything) - isolated widget for optimal performance
         if (hasChildren && _positionsMeasured && _parentBottomCenter != null)
           Positioned.fill(
-            child: CustomPaint(
-              painter: OrganizationConnectorPainter(
-                parentPosition: _parentBottomCenter!,
-                childrenPositions: _childTopCenters,
-                lineColor: DesignConstants.primaryColor.withValues(alpha: 0.4),
-                strokeWidth: 2.0,
-              ),
+            child: ConnectorLayer(
+              parentPosition: _parentBottomCenter!,
+              childrenPositions: _childTopCenters,
             ),
           ),
 
@@ -94,78 +90,51 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
         Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-                // The node card with hover actions
-                MouseRegion(
-                  onEnter: (_) => setState(() => _isHovered = true),
-                  onExit: (_) => setState(() => _isHovered = false),
-                  child: Stack(
-                    clipBehavior: Clip.none,
-                    children: [
-                      // Card with key for position measurement
-                      Container(
-                        key: _cardKey,
-                        child: OrganizationNodeCard(
-                          node: widget.node,
-                          onTap: () => _showNodeDetails(context),
-                        ),
+                // The node card with hover actions (isolated to prevent rebuilds)
+                HoverActionOverlay(
+                  actions: [
+                    HoverAction(
+                      icon: Icons.person_add,
+                      tooltip: 'Mitarbeiter hinzufügen',
+                      color: DesignConstants.successColor,
+                      onPressed: () => _showAddEmployeeDialog(context),
+                    ),
+                    if (widget.showDeleteButton)
+                      HoverAction(
+                        icon: Icons.delete_outline,
+                        tooltip: 'Löschen',
+                        color: DesignConstants.errorColor,
+                        onPressed: () => _confirmDelete(context),
                       ),
-
-                      // Children count badge
-                      if (hasChildren)
-                        Positioned(
-                          top: 8,
-                          left: 8,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: DesignConstants.successColor,
-                              borderRadius: BorderRadius.circular(
-                                DesignConstants.borderRadiusRound,
-                              ),
-                            ),
-                            child: Text(
-                              '${children.length}',
-                              style: const TextStyle(
-                                color: DesignConstants.textOnPrimary,
-                                fontSize: 10,
-                                fontWeight: DesignConstants.fontWeightBold,
-                              ),
+                  ],
+                  topLeftWidget: hasChildren
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: DesignConstants.successColor,
+                            borderRadius: BorderRadius.circular(
+                              DesignConstants.borderRadiusRound,
                             ),
                           ),
-                        ),
-
-                      // Hover actions
-                      if (_isHovered)
-                        Positioned(
-                          top: 8,
-                          right: 8,
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              // Add employee button
-                              _buildActionButton(
-                                icon: Icons.person_add,
-                                tooltip: 'Mitarbeiter hinzufügen',
-                                color: DesignConstants.successColor,
-                                onPressed: () => _showAddEmployeeDialog(context),
-                              ),
-                              // Delete button
-                              if (widget.showDeleteButton) ...[
-                                const SizedBox(width: 4),
-                                _buildActionButton(
-                                  icon: Icons.delete_outline,
-                                  tooltip: 'Löschen',
-                                  color: DesignConstants.errorColor,
-                                  onPressed: () => _confirmDelete(context),
-                                ),
-                              ],
-                            ],
+                          child: Text(
+                            '${children.length}',
+                            style: const TextStyle(
+                              color: DesignConstants.textOnPrimary,
+                              fontSize: 10,
+                              fontWeight: DesignConstants.fontWeightBold,
+                            ),
                           ),
-                        ),
-                    ],
+                        )
+                      : null,
+                  child: Container(
+                    key: _cardKey,
+                    child: OrganizationNodeCard(
+                      node: widget.node,
+                      onTap: () => _showNodeDetails(context),
+                    ),
                   ),
                 ),
 
@@ -264,31 +233,6 @@ class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
         _positionsMeasured = true;
       });
     }
-  }
-
-  Widget _buildActionButton({
-    required IconData icon,
-    required String tooltip,
-    required Color color,
-    required VoidCallback onPressed,
-  }) {
-    return Container(
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(DesignConstants.borderRadiusRound),
-        boxShadow: DesignConstants.shadowSm,
-      ),
-      child: IconButton(
-        icon: Icon(icon, size: 16, color: Colors.white),
-        onPressed: onPressed,
-        tooltip: tooltip,
-        padding: const EdgeInsets.all(4),
-        constraints: const BoxConstraints(
-          minWidth: 28,
-          minHeight: 28,
-        ),
-      ),
-    );
   }
 
   void _showAddEmployeeDialog(BuildContext context) {
