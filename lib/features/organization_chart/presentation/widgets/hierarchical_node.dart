@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:trialog/core/constants/design_constants.dart';
 import 'package:trialog/features/organization_chart/domain/entities/organization_node.dart';
 import 'package:trialog/features/organization_chart/presentation/state/organization_chart_providers.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/add_employee_dialog.dart';
 import 'package:trialog/features/organization_chart/presentation/widgets/organization_node_card.dart';
+import 'package:trialog/features/organization_chart/presentation/widgets/organization_connector_painter.dart';
 
-/// Hierarchical node that can have children below it
+/// Hierarchical node that can have children below it with elegant curved connectors
 class HierarchicalNode extends ConsumerStatefulWidget {
   final OrganizationNode node;
   final bool showDeleteButton;
@@ -23,151 +25,245 @@ class HierarchicalNode extends ConsumerStatefulWidget {
 
 class _HierarchicalNodeState extends ConsumerState<HierarchicalNode> {
   bool _isHovered = false;
+  final GlobalKey _stackKey = GlobalKey();
   final GlobalKey _cardKey = GlobalKey();
+  final List<GlobalKey> _childKeys = [];
+
+  // Measured positions for connector lines
+  Offset? _parentBottomCenter;
+  final List<Offset> _childTopCenters = [];
+  bool _positionsMeasured = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeChildKeys();
+  }
+
+  @override
+  void didUpdateWidget(HierarchicalNode oldWidget) {
+    super.didUpdateWidget(oldWidget);
+
+    // Re-initialize keys if children count changed
+    if (widget.node.children.length != oldWidget.node.children.length) {
+      _initializeChildKeys();
+    }
+
+    // ALWAYS reset position measurement when widget updates
+    // This ensures lines are redrawn after add/remove operations
+    _positionsMeasured = false;
+  }
+
+  void _initializeChildKeys() {
+    _childKeys.clear();
+    for (int i = 0; i < widget.node.children.length; i++) {
+      _childKeys.add(GlobalKey());
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final children = widget.node.children;
     final hasChildren = children.isNotEmpty;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
+    // Measure positions after layout
+    if (hasChildren && !_positionsMeasured) {
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _measurePositions();
+      });
+    }
+
+    return Stack(
+      key: _stackKey,
+      clipBehavior: Clip.none,
       children: [
-        // The node card with hover actions
-        MouseRegion(
-          onEnter: (_) => setState(() => _isHovered = true),
-          onExit: (_) => setState(() => _isHovered = false),
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              // Card with key for position measurement
-              Container(
-                key: _cardKey,
-                child: OrganizationNodeCard(
-                  node: widget.node,
-                  onTap: () => _showNodeDetails(context),
-                ),
+        // Connector lines (drawn behind everything)
+        if (hasChildren && _positionsMeasured && _parentBottomCenter != null)
+          Positioned.fill(
+            child: CustomPaint(
+              painter: OrganizationConnectorPainter(
+                parentPosition: _parentBottomCenter!,
+                childrenPositions: _childTopCenters,
+                lineColor: DesignConstants.primaryColor.withValues(alpha: 0.4),
+                strokeWidth: 2.0,
               ),
-
-              // Children count badge
-              if (hasChildren)
-                Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
-                    ),
-                    decoration: BoxDecoration(
-                      color: DesignConstants.successColor,
-                      borderRadius: BorderRadius.circular(
-                        DesignConstants.borderRadiusRound,
-                      ),
-                    ),
-                    child: Text(
-                      '${children.length}',
-                      style: const TextStyle(
-                        color: DesignConstants.textOnPrimary,
-                        fontSize: 10,
-                        fontWeight: DesignConstants.fontWeightBold,
-                      ),
-                    ),
-                  ),
-                ),
-
-              // Hover actions
-              if (_isHovered)
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Add employee button
-                      _buildActionButton(
-                        icon: Icons.person_add,
-                        tooltip: 'Mitarbeiter hinzufügen',
-                        color: DesignConstants.successColor,
-                        onPressed: () => _showAddEmployeeDialog(context),
-                      ),
-                      // Delete button
-                      if (widget.showDeleteButton) ...[
-                        const SizedBox(width: 4),
-                        _buildActionButton(
-                          icon: Icons.delete_outline,
-                          tooltip: 'Löschen',
-                          color: DesignConstants.errorColor,
-                          onPressed: () => _confirmDelete(context),
-                        ),
-                      ],
-                    ],
-                  ),
-                ),
-            ],
-          ),
-        ),
-
-        // Children below (if any)
-        if (hasChildren) ...[
-          const SizedBox(height: DesignConstants.spacingMd),
-
-          // Vertical line down from parent
-          Container(
-            width: 2,
-            height: 30,
-            color: DesignConstants.primaryColor.withValues(alpha: 0.3),
-          ),
-
-          // Horizontal connector (only if multiple children)
-          if (children.length > 1)
-            Container(
-              width: (children.length - 1) * 216,
-              height: 2,
-              color: DesignConstants.primaryColor.withValues(alpha: 0.3),
             ),
+          ),
 
-          // Children in horizontal row with scroll
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: IntrinsicHeight(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: children.map((child) {
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: DesignConstants.spacingSm,
-                    ),
-                    child: Column(
-                      children: [
-                        // Vertical line to child
-                        Container(
-                          width: 2,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: [
-                                DesignConstants.primaryColor.withValues(alpha: 0.2),
-                                DesignConstants.primaryColor.withValues(alpha: 0.4),
-                              ],
+        // The actual node hierarchy
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+                // The node card with hover actions
+                MouseRegion(
+                  onEnter: (_) => setState(() => _isHovered = true),
+                  onExit: (_) => setState(() => _isHovered = false),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      // Card with key for position measurement
+                      Container(
+                        key: _cardKey,
+                        child: OrganizationNodeCard(
+                          node: widget.node,
+                          onTap: () => _showNodeDetails(context),
+                        ),
+                      ),
+
+                      // Children count badge
+                      if (hasChildren)
+                        Positioned(
+                          top: 8,
+                          left: 8,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: DesignConstants.successColor,
+                              borderRadius: BorderRadius.circular(
+                                DesignConstants.borderRadiusRound,
+                              ),
+                            ),
+                            child: Text(
+                              '${children.length}',
+                              style: const TextStyle(
+                                color: DesignConstants.textOnPrimary,
+                                fontSize: 10,
+                                fontWeight: DesignConstants.fontWeightBold,
+                              ),
                             ),
                           ),
                         ),
-                        // Recursive child (no width constraint!)
-                        HierarchicalNode(node: child),
-                      ],
-                    ),
-                  );
-                }).toList(),
-              ),
+
+                      // Hover actions
+                      if (_isHovered)
+                        Positioned(
+                          top: 8,
+                          right: 8,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Add employee button
+                              _buildActionButton(
+                                icon: Icons.person_add,
+                                tooltip: 'Mitarbeiter hinzufügen',
+                                color: DesignConstants.successColor,
+                                onPressed: () => _showAddEmployeeDialog(context),
+                              ),
+                              // Delete button
+                              if (widget.showDeleteButton) ...[
+                                const SizedBox(width: 4),
+                                _buildActionButton(
+                                  icon: Icons.delete_outline,
+                                  tooltip: 'Löschen',
+                                  color: DesignConstants.errorColor,
+                                  onPressed: () => _confirmDelete(context),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+
+                // Children below (if any)
+                if (hasChildren) ...[
+                  const SizedBox(height: 60), // Space for curved connectors
+
+                  // Children in horizontal row
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: List.generate(children.length, (index) {
+                      final child = children[index];
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: DesignConstants.spacingMd,
+                        ),
+                        child: Container(
+                          key: _childKeys[index],
+                          child: HierarchicalNode(node: child),
+                        ),
+                      );
+                    }),
+                  ),
+                ],
+              ],
             ),
-          ),
-        ],
-      ],
+          ],
+        );
+  }
+
+  /// Measures positions of parent and children for connector lines
+  void _measurePositions() {
+    if (!mounted) return;
+
+    // Get the stack's render box (our coordinate reference)
+    final stackBox = _stackKey.currentContext?.findRenderObject() as RenderBox?;
+    if (stackBox == null || !stackBox.hasSize) {
+      // Stack not ready, retry in next frame
+      SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+      return;
+    }
+
+    // Get parent card position (bottom center)
+    final parentBox = _cardKey.currentContext?.findRenderObject() as RenderBox?;
+    if (parentBox == null || !parentBox.hasSize) {
+      // Parent not ready, retry in next frame
+      SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+      return;
+    }
+
+    // Calculate parent's bottom center in stack coordinates
+    final parentLocalBottomCenter = Offset(
+      parentBox.size.width / 2,
+      parentBox.size.height,
     );
+    final parentGlobalBottomCenter = parentBox.localToGlobal(parentLocalBottomCenter);
+    final stackGlobalOrigin = stackBox.localToGlobal(Offset.zero);
+
+    final parentPositionInStack = Offset(
+      parentGlobalBottomCenter.dx - stackGlobalOrigin.dx,
+      parentGlobalBottomCenter.dy - stackGlobalOrigin.dy,
+    );
+
+    // Get children positions (top center) in stack coordinates
+    final List<Offset> childPositions = [];
+    for (final childKey in _childKeys) {
+      final childBox = childKey.currentContext?.findRenderObject() as RenderBox?;
+      if (childBox == null || !childBox.hasSize) {
+        // Some children not ready yet, retry in next frame
+        SchedulerBinding.instance.addPostFrameCallback((_) => _measurePositions());
+        return;
+      }
+
+      // Calculate child's top center in stack coordinates
+      final childLocalTopCenter = Offset(
+        childBox.size.width / 2,
+        0,
+      );
+      final childGlobalTopCenter = childBox.localToGlobal(childLocalTopCenter);
+
+      final childPositionInStack = Offset(
+        childGlobalTopCenter.dx - stackGlobalOrigin.dx,
+        childGlobalTopCenter.dy - stackGlobalOrigin.dy,
+      );
+
+      childPositions.add(childPositionInStack);
+    }
+
+    // Update state with measured positions (all relative to stack)
+    if (childPositions.isNotEmpty && mounted) {
+      setState(() {
+        _parentBottomCenter = parentPositionInStack;
+        _childTopCenters.clear();
+        _childTopCenters.addAll(childPositions);
+        _positionsMeasured = true;
+      });
+    }
   }
 
   Widget _buildActionButton({
